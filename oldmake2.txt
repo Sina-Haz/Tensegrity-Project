@@ -1,0 +1,22 @@
+# Compiler
+CXX = g++
+
+# Compiler flags
+CXXFLAGS = -std=c++17 -g -Wall -Werror -fsanitize=address -I/opt/homebrew/include -I/opt/homebrew/opt/lapack/include -I/opt/homebrew/opt/openblas/include
+
+# Linking flags
+LDFLAGS = -L/opt/homebrew/lib -L/opt/homebrew/opt/lapack/lib -L/opt/homebrew/opt/openblas/lib -larmadillo -llapack -lopenblas -framework Accelerate
+
+# Source file
+SRC = linalg.cpp
+
+# Target executable
+TARGET = out
+
+# Default target
+all:
+	$(CXX) $(CXXFLAGS) $(SRC) $(LDFLAGS) -o $(TARGET)
+
+# Clean up
+clean:
+	rm -f $(TARGET)

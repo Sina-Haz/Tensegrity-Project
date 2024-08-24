@@ -1,0 +1,32 @@
+# Compiler
+CXX = g++
+
+# Compiler flags
+CXXFLAGS = -std=c++17 -g -Wall -Werror -fsanitize=address -I/opt/homebrew/include -I/opt/homebrew/opt/lapack/include
+
+# Linking flags
+LDFLAGS = -L/opt/homebrew/lib -L/opt/homebrew/opt/lapack/lib -larmadillo -llapack -lblas -v
+
+# Source files
+SRCS = linalg.cpp
+
+# Object files
+OBJS = $(SRCS:.cpp=.o)
+
+# Target executable
+TARGET = out
+
+# Default target
+all: $(TARGET)
+
+# Linking rule
+$(TARGET): $(OBJS)
+	$(CXX) $(OBJS) $(LDFLAGS) -o $@ 
+
+# Compilation rule
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Clean up
+clean:
+	rm -f $(TARGET) $(OBJS)
