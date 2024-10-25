@@ -1,8 +1,12 @@
 #include "lib.hpp" // Correct include path with quotes
 #include <iostream>
+#include <armadillo>
+
+
+using v3 = arma::vec3;
 
 // Function to print a dv3 vector
-void print(const dv3& v) {
+void print(const v3& v) {
     std::cout << "(" << v[0] << ", " << v[1] << ", " << v[2] << ")" << std::endl;
 }
 
