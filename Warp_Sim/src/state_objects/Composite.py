@@ -1,7 +1,9 @@
 from state_objects.Rigid import *
+from utils.define import default_dtype, vec3, mat33
+
 
 class CompositeBody:
-    def __init__(self, v: wp.vec3, w: wp.vec3, quat: wp.quat, rigid_names: list[str], rigid_bodies: list[RigidBody], sites: list[str]) -> None:
+    def __init__(self, v: vec3, w: vec3, quat: wp.quat, rigid_names: list[str], rigid_bodies: list[RigidBody], sites: list[str]) -> None:
         self.state = rigid_state() # The state of our overall body
 
         # This boolean helps us determine whether we need to update inner body states after we update overall composite state
@@ -14,7 +16,7 @@ class CompositeBody:
         self._rigid_bodies = wp.array(rigid_bodies, dtype=RigidBody)
 
         # Overall mass is sum of all the component masses
-        mass_array, com_array = wp.array([0.], dtype=float), wp.array(wp.vec3())
+        mass_array, com_array = wp.array([0.], dtype=float), wp.array(vec3())
         wp.launch(compute_total_mass, dim=len(self._rigid_bodies), inputs=[self._rigid_bodies, mass_array])
         self.mass = mass_array[0]
 
@@ -32,26 +34,26 @@ class CompositeBody:
         self.body_offsets = self._compute_body_vecs(com, quat)
     
 
-    def _compute_inertia_tensor(self, com, quat) -> wp.mat33:
+    def _compute_inertia_tensor(self, com, quat) -> mat33:
         '''
         Computes the inertia tensor of the composite body by applying parallel axis theorem and summing the 
         inertia tensors of its component rigid bodies
         '''
         rot_mat = wp.quat_to_matrix(quat)
         rot_mat_inv = wp.inverse(rot_mat)
-        I_body_total = wp.array(wp.mat33()) # 0 initialization
+        I_body_total = wp.array(mat33()) # 0 initialization
 
         # Use the helper kernel to compute the inertia tensor
         wp.launch(comp_inertia_helper, dim=len(self._rigid_bodies), inputs = [self._rigid_bodies, com, rot_mat_inv, I_body_total])
 
         return I_body_total[0]
     
-    def _compute_body_vecs(self, com, quat) -> wp.array(dtype=wp.vec3):
+    def _compute_body_vecs(self, com, quat) -> wp.array(dtype=vec3):
         '''
         Compute the positions of each rigid body relative to composite CoM and orientation and store
         in a dictionary that matches rigid body name to offset
         '''
-        vecs = wp.array(dtype=wp.vec3, shape = (self.rigid_bodies[0], ))
+        vecs = wp.array(dtype=vec3, shape = (self.rigid_bodies[0], ))
         rot_mat = wp.quat_to_matrix(quat)
         rot_mat_inv = wp.inverse(rot_mat)
 
@@ -79,7 +81,7 @@ class CompositeBody:
 
 
 @wp.func
-def parallel_axis_offset(I_body: wp.mat33, mass: wp.float32, offset: wp.vec3) -> wp.mat33:
+def parallel_axis_offset(I_body: mat33, mass: default_dtype, offset: vec3) -> mat33:
     """
     Computes the inertia tensor adjusted for an offset using the parallel axis theorem.
     
@@ -98,7 +100,7 @@ def parallel_axis_offset(I_body: wp.mat33, mass: wp.float32, offset: wp.vec3) ->
     r_squared = wp.dot(offset, offset)
 
     # Create an identity matrix
-    identity = wp.identity(3, dtype=wp.float32)
+    identity = wp.identity(3, dtype=default_dtype)
 
     # Apply the parallel axis theorem formula
     I_offset = I_body + mass * (r_squared * identity - r_outer)
@@ -115,7 +117,7 @@ def compute_total_mass(bodies: wp.array(dtype=RigidBody), mass_arr: wp.array(dty
     wp.atomic_add(mass_arr, 0, bodies[tid].mass)
 
 @wp.kernel
-def compute_com(bodies: wp.array(dtype=RigidBody), com_arr: wp.array(dtype=wp.vec3), total_mass: wp.float32):
+def compute_com(bodies: wp.array(dtype=RigidBody), com_arr: wp.array(dtype=vec3), total_mass: default_dtype):
     '''
     Similar to previous kernel, computes the CoM by taking each component CoM and doing a weighted sum of them 
     based on what fraction of the composite's total mass they represent
@@ -126,7 +128,7 @@ def compute_com(bodies: wp.array(dtype=RigidBody), com_arr: wp.array(dtype=wp.ve
 
 
 @wp.kernel
-def comp_inertia_helper(rbodies: wp.array(dtype=RigidBody), com: wp.vec3, rot_mat_inv: wp.mat33, I_body_total: wp.array(dtype = wp.mat33)):
+def comp_inertia_helper(rbodies: wp.array(dtype=RigidBody), com: vec3, rot_mat_inv: mat33, I_body_total: wp.array(dtype = mat33)):
     '''
     This kernel is used to compute the total inertia tensor of composite body using its center of mass, rotation matrix
     as well as the variables inside all of its component rigid bodies. How it works is it takes the regular inertia tensor
@@ -144,14 +146,14 @@ def comp_inertia_helper(rbodies: wp.array(dtype=RigidBody), com: wp.vec3, rot_ma
     wp.atomic_add(I_body_total,0, I_b)
 
 @wp.kernel
-def compute_offsets(bodies: wp.array(dtype=RigidBody), com: wp.vec3, rot_mat_inv: wp.mat33, vecs: wp.array(wp.vec3)):
+def compute_offsets(bodies: wp.array(dtype=RigidBody), com: vec3, rot_mat_inv: mat33, vecs: wp.array(vec3)):
     tid = wp.tid()
     offset_world = bodies[tid].state.pos - com
     offset_body = rot_mat_inv @ offset_world
     vecs[tid] = offset_body
 
 @wp.kernel
-def update_all_rigid_bodies(bodies: wp.array(dtype=RigidBody), offsets: wp.array(dtype=wp.vec3), composite_state: rigid_state):
+def update_all_rigid_bodies(bodies: wp.array(dtype=RigidBody), offsets: wp.array(dtype=vec3), composite_state: rigid_state):
     '''
     This kernel updates all of the states of the rigid bodies of the composite based on their respective offsets and the
     new composite state. It assumes children rigid bodies are only being influenced by parent

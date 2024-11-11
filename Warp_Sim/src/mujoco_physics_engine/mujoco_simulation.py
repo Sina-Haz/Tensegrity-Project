@@ -1,7 +1,7 @@
 import json
 import random
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import cv2
 import mujoco
@@ -17,7 +17,7 @@ class AbstractMuJoCoSimulator:
     def __init__(self,
                  xml_path: Path,
                  visualize: bool = False,
-                 render_size: (int, int) = (480, 640),
+                 render_size: Tuple[int, int] = (480, 640),
                  render_fps: int = 50):
         self.xml_path = xml_path
         self.visualize = visualize

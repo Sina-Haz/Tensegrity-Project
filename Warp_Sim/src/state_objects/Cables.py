@@ -15,90 +15,20 @@ import warp as wp
 from actuation.DC_Motor import *
 import numpy as np
 from typing import Any, Optional
-import torch
+from utils.define import default_dtype, vec3, mat33
 
-# # Compute generic dot product that computes dot product of 2 vectors along some axis
-# # Final output stored in out. For now we just assume axis == 1 
-# @wp.kernel
-# def row_dot(a: wp.array(dtype=Any),
-#             b: wp.array(dtype=Any),
-#             out: wp.array(dtype=Any)):
-    
-#     # This represents the row of the matrix we are doing row-wise dot product on
-#     tid = wp.tid()
-
-#     out[tid] = wp.dot(a[tid], b[tid])
-
-
-    
-    
-
-@wp.struct
-class Spring:
-    ke: wp.float32 # Spring stiffness
-    kd: wp.float32 # Spring damping
-    L0: wp.float32 # Rest length
-    x1: wp.vec3 # Endpoint 1
-    x2: wp.vec3 # Endpoint 2
-
-@wp.func
-def spr_init(spr:Spring, ke: wp.float32, kd: wp.float32, L0: wp.float32, x1: wp.vec3, x2: wp.vec3):
-    '''
-    Initialize the Spring instance spr with given arguments
-    Returns None (does it in place)
-    '''
-    spr.ke=ke
-    spr.kd=kd
-    spr.L0=L0
-    spr.x1=x1
-    spr.x2=x2
-
-
-@wp.func
-def compute_length(spr: Spring):
-    '''
-    Takes in Spring spr and returns length b/w its endpoints
-    '''
-    return wp.length(spr.x2 - spr.x1)
-
-
-@wp.func
-def compute_force(spr: Spring, v1: Any, v2: Any):
-    '''
-    Takes in velocities of the endpoints of Spring spr.
-    Computes the spring force using equation F = ke * (currLen - restLen) - kd * relative velocity
-    Force is relative to (endpt2 - endpt1), unit vector
-    returns a wp.vec3 force vector 
-    Based on warp's own implementation
-    '''
-    # Get unit direction of spr and length of spring (this will be vec3 and scalar)
-    # Get relative velocity
-    unit = wp.normalize(spr.x2 - spr.x1)
-    len = compute_length(spr)
-    v_rel = v2 - v1
-
-    # Total force is the sum of spring force and kd force
-    # Hooke's Law: F_spr = -k*(L - L0) where L0 is rest length
-    fs = - spr.ke * (len - spr.L0)
-
-    # Spring damping law:
-    fd = - spr.kd * wp.dot(v_rel, unit)
-
-    # Total force is sum of magnitudes along unit direction of the spring
-    f_tot = (fs + fd) * unit
-    return f_tot
 
 
 @wp.struct
 class Cable: # Same variables as spring
-    ke: wp.float32 # Spring stiffness
-    kd: wp.float32 # Spring damping
-    L0: wp.float32 # Rest length
-    x1: wp.vec3 # Endpoint 1
-    x2: wp.vec3 # Endpoint 2
+    ke: default_dtype # Spring stiffness
+    kd: default_dtype # Spring damping
+    L0: default_dtype # Rest length
+    x1: vec3 # Endpoint 1
+    x2: vec3 # Endpoint 2
 
 @wp.func
-def cable_init(cable: Cable, ke: wp.float32, kd: wp.float32, L0: wp.float32, x1: wp.vec3, x2: wp.vec3):
+def cable_init(cable: Cable, ke: default_dtype, kd: default_dtype, L0: default_dtype, x1: vec3, x2: vec3):
     '''
     Initialize the Cable instance cable with given arguments
     Returns None (does it in place)
@@ -110,14 +40,14 @@ def cable_init(cable: Cable, ke: wp.float32, kd: wp.float32, L0: wp.float32, x1:
     cable.x2=x2
 
 @wp.func
-def compute_len(cable: Cable):
+def compute_len(cable: Cable) -> default_dtype:
     '''
     Computes length of a cable based on its endpoint position
     '''
     return wp.length(cable.x2 - cable.x1)
 
 @wp.func
-def compute_force(cable: Cable, v1: wp.vec3, v2: wp.vec3):
+def compute_force(cable: Cable, v1: vec3, v2: vec3) -> vec3:
     '''
     Computes the spring force using equation F = ke * (currLen - restLen) - kd * relative velocity
     Only applies force if the cable is stretched, no pushing force for when it's compressed
@@ -126,7 +56,7 @@ def compute_force(cable: Cable, v1: wp.vec3, v2: wp.vec3):
     # Get unit direction of cable and length of spring (this will be vec3 and scalar)
     # Get relative velocity
     unit = wp.normalize(cable.x2 - cable.x1)
-    len = compute_length(cable)
+    len = compute_len(cable)
     v_rel = v2 - v1
 
     # Only apply tension if the cable is stretched, no pushing
@@ -138,58 +68,58 @@ def compute_force(cable: Cable, v1: wp.vec3, v2: wp.vec3):
         fd = - cable.kd * wp.dot(v_rel, unit)
 
         # Total force is sum of magnitudes along unit direction of the cable
-        f_tot = (ft + fd) * unit
+        f_tot = default_dtype((ft + fd)) * unit
     else:
-        f_tot = wp.vec3(0.0, 0.0, 0.0)
+        f_tot = vec3(0.0, 0.0, 0.0)
     
     return f_tot
 
 
 @wp.struct
 class ActuatedCable:
-    ke: wp.float32 # Spring stiffness
-    kd: wp.float32 # Spring damping
-    L0: wp.float32 # Rest length (Base, not taking into acct any actuation length)
-    x1: wp.vec3 # Endpoint 1
-    x2: wp.vec3 # Endpoint 2
-    winch_r: wp.float32 # Winch radius to convert b/w angular and linear velocity
-    _winch_r: wp.float32 # Winch radius in space of logits
-    min_winch_r: wp.float32 # min winch_r (for when all of cable is unspooled)
-    max_winch_r: wp.float32 # max winch_r (for when all of cable wrapped around the winch)
+    ke: default_dtype # Spring stiffness
+    kd: default_dtype # Spring damping
+    L0: default_dtype # Rest length (Base, not taking into acct any actuation length)
+    x1: vec3 # Endpoint 1
+    x2: vec3 # Endpoint 2
+    winch_r: default_dtype # Winch radius to convert b/w angular and linear velocity
+    _winch_r: default_dtype # Winch radius in space of logits
+    min_winch_r: default_dtype # min winch_r (for when all of cable is unspooled)
+    max_winch_r: default_dtype # max winch_r (for when all of cable wrapped around the winch)
     motor: DCMotor # The DC motor with angular velocity and speed
-    act_L0: wp.float32 # Actuation length
-    init_act_L0: wp.float32 # Initial actuation length (for easy reset)
+    act_L0: default_dtype # Actuation length
+    init_act_L0: default_dtype # Initial actuation length (for easy reset)
 
 
 def act_cable_init(act_cable: ActuatedCable,
-                ke: wp.float32,
-                kd: wp.float32,
-                L0: wp.float32,
-                x1: wp.vec3,
-                x2: wp.vec3,
-                winch_r: wp.float32, 
-                min_winch_r: wp.float32 = 0.01,
-                max_winch_r: wp.float32 = 0.07,
+                ke: default_dtype,
+                kd: default_dtype,
+                L0: default_dtype,
+                x1: vec3,
+                x2: vec3,
+                winch_r: default_dtype, 
+                min_winch_r: default_dtype = 0.01,
+                max_winch_r: default_dtype = 0.07,
                 motor: Optional[DCMotor] =None,
-                motor_speed: wp.float32 = 0.6,
-                init_act_len: wp.float32 = 0.0):
-    act_cable.ke=ke
-    act_cable.kd=kd
-    act_cable.L0=L0
-    act_cable.x1=x1
-    act_cable.x2=x2
-    act_cable.min_winch_r=wp.float32(min_winch_r)
-    act_cable.max_winch_r=wp.float32(max_winch_r)
-    act_cable.motor=DCMotor(wp.float32(motor_speed)) if motor is None else motor
-    act_cable.act_L0=wp.float32(init_act_len)
-    act_cable.init_act_L0=wp.float32(init_act_len)
+                motor_speed: default_dtype = 0.6,
+                init_act_len: default_dtype = 0.0):
+    act_cable.ke=default_dtype(ke)
+    act_cable.kd=default_dtype(kd)
+    act_cable.L0=default_dtype(L0)
+    act_cable.x1=vec3(x1)
+    act_cable.x2=vec3(x2)
+    act_cable.min_winch_r=default_dtype(min_winch_r)
+    act_cable.max_winch_r=default_dtype(max_winch_r)
+    act_cable.motor=DCMotor(default_dtype(motor_speed)) if motor is None else motor
+    act_cable.act_L0=default_dtype(init_act_len)
+    act_cable.init_act_L0=default_dtype(init_act_len)
     act_cable._winch_r=_set_winch_r(act_cable, winch_r)
 
 
 
 
 @wp.func
-def _set_winch_r(act_cable: ActuatedCable, winch_r: float):
+def _set_winch_r(act_cable: ActuatedCable, winch_r: default_dtype) -> default_dtype:
     '''
     Takes cable and winch_r, asserts it's valid (w/in defn range)
     It then normalizes it and puts it into logit space
@@ -215,16 +145,16 @@ def reset_cable(act_cable:ActuatedCable):
     reset(act_cable.motor.state)
 
 @wp.func
-def compute_rest_len(act_cable: ActuatedCable):
+def compute_rest_len(act_cable: ActuatedCable) -> default_dtype:
     '''
     A helper function to dynamically give current remaining rest length based on base rest length and current actuation length
     returns curr_rest_len: float32
     '''
     curr_rest_len = act_cable.L0 - act_cable.act_L0
-    return curr_rest_len
+    return default_dtype(curr_rest_len)
 
 @wp.func
-def update_cable(act_cable:ActuatedCable, control: wp.float32, cable_len: wp.float32, dt: wp.float32):
+def update_cable(act_cable: ActuatedCable, control: default_dtype, cable_len: default_dtype, dt: default_dtype):
     '''
     Updates the actuation rest length and endpoints of the actuated cable based on the control input, winch radius, 
     and time step. Ensures that the actuation length doesn't exceed the original rest length.
@@ -233,9 +163,9 @@ def update_cable(act_cable:ActuatedCable, control: wp.float32, cable_len: wp.flo
 
     Args:
         act_cable (ActuatedCable): The actuated cable object to update.
-        control (wp.float32): Control signal used to determine motor actuation.
-        cable_len (wp.float32): Current length of the cable.
-        dt (wp.float32): Time step for the simulation.
+        control (default_dtype): Control signal used to determine motor actuation.
+        cable_len (default_dtype): Current length of the cable.
+        dt (default_dtype): Time step for the simulation.
 
     Ensures:
         act_cable.act_L0 <= act_cable.L0, so the actuation length does not exceed the original rest length.
@@ -252,17 +182,19 @@ def update_cable(act_cable:ActuatedCable, control: wp.float32, cable_len: wp.flo
     act_cable.act_L0 = min(act_cable.act_L0, act_cable.L0) # cable cannot be longer than original rest length
 
     # Update the positions of the endpoints MAY NEED TO ADJUST LATER
-    delta_pos = (act_cable.act_L0 - act_cable.L0) * wp.normalize(act_cable.x2 - act_cable.x1)
-    act_cable.x1 += delta_pos * 0.5  # Move x1 towards x2
-    act_cable.x2 -= delta_pos * 0.5  # Move x2 towards x1
+    diff = vec3(act_cable.x2 - act_cable.x1)
+    ndiff = wp.normalize(diff)
+    delta_pos = (act_cable.act_L0 - act_cable.L0) * ndiff
+    act_cable.x1 += vec3(delta_pos * 0.5)  # Move x1 towards x2
+    act_cable.x2 -= vec3(delta_pos * 0.5)  # Move x2 towards x1
 
 @wp.func
-def compute_force(act_cable: ActuatedCable, v1: wp.vec3, v2: wp.vec3):
+def compute_force(act_cable: ActuatedCable, v1: vec3, v2: vec3) -> vec3:
     '''
     Use same exact methodology to compute force of Actuated Cable as we did with Cable
      - NOTE that this assumes that the end points update strategy we use in update_cable is correct
      - NOTE this replaces base rest length of cable with compute_rest_len (accounts for actuation length)
-    Returns a wp.vec3, force vector aligned along unit direction of the cable
+    Returns a vec3, force vector aligned along unit direction of the cable
     '''
     dir = act_cable.x2 - act_cable.x1
     unit = wp.normalize(dir)
@@ -279,9 +211,9 @@ def compute_force(act_cable: ActuatedCable, v1: wp.vec3, v2: wp.vec3):
         fd = - act_cable.kd * wp.dot(v_rel, unit)
 
         # Total force is sum of magnitudes along unit direction of the cable
-        f_tot = (ft + fd) * unit
+        f_tot = default_dtype((ft + fd)) * unit
     else:
-        f_tot = wp.vec3(0.0, 0.0, 0.0)
+        f_tot = vec3(0.0, 0.0, 0.0)
     
     return f_tot
 
@@ -290,74 +222,57 @@ def compute_force(act_cable: ActuatedCable, v1: wp.vec3, v2: wp.vec3):
 
 
 
-
-
-
-
 if __name__ == '__main__':
-    # Testing Spring
-    spr = Spring()
-    spr_init(spr, 3.87, 0.3, 4.0, wp.vec3(0.0, 0.0, 0.0), wp.vec3(0.0, 5.0, 0.0))
-    
-    print("Testing Spring:")
-    print("Initial Spring Length:", compute_length(spr))
 
-    # Random velocities
-    v1 = wp.vec3(0.0, 1.0, 0.0)  # Endpoint 1 velocity
-    v2 = wp.vec3(0.0, 0.5, 0.0)  # Endpoint 2 velocity
-
-    # Compute and print force
-    print("Spring Force:", compute_force(spr, v1, v2))
-
-    # Testing Cable
+    # # Testing Cable
     cable = Cable()
-    cable_init(cable, 2.5, 0.2, 3.0, wp.vec3(1.0, 0.0, 0.0), wp.vec3(1.0, 4.0, 0.0))
+    cable_init(cable, 2.5, 0.2, 3.0, vec3(1.0, 0.0, 0.0), vec3(1.0, 4.0, 0.0))
     
     print("\nTesting Cable:")
     print("Initial Cable Length:", compute_len(cable))
 
-    # Random velocities for Cable
-    v1_cable = wp.vec3(0.1, 0.0, 0.0)  # Endpoint 1 velocity
-    v2_cable = wp.vec3(-0.1, 0.0, 0.0)  # Endpoint 2 velocity
+    # # Random velocities for Cable
+    v1_cable = vec3(0.1, 0.0, 0.0)  # Endpoint 1 velocity
+    v2_cable = vec3(-0.1, 0.0, 0.0)  # Endpoint 2 velocity
 
-    # Compute and print force
+    # # Compute and print force
     print("Cable Force:", compute_force(cable, v1_cable, v2_cable))
 
-    # Test for ActuatedCable can be added similarly once functionality is verified.
-    # Testing Actuated Cable
+    # # Test for ActuatedCable can be added similarly once functionality is verified.
+    # # Testing Actuated Cable
     act_cable = ActuatedCable()
     motor = DCMotor()  # Initialize motor with a speed of 0.6
-    motor.speed = wp.float32(0.6)
+    motor_init(motor, default_dtype(0.6))
     act_cable_init(
         act_cable, 
         3.0, 0.2, 5.0, 
-        wp.vec3(0.0, 0.0, 0.0), 
-        wp.vec3(0.0, 6.0, 0.0), 
+        vec3(0.0, 0.0, 0.0), 
+        vec3(0.0, 6.0, 0.0), 
         0.05, 
         motor=motor
     )
 
-    print("\nTesting Actuated Cable:")
-    print("Initial Actuated Cable Length:", compute_length(act_cable))
+    # print("\nTesting Actuated Cable:")
+    print("Initial Actuated Cable Length:", compute_len(act_cable))
     
-    # Compute and print force before update
-    v1_act = wp.vec3(0.2, 0.1, 0.0)  # Velocity for endpoint 1
-    v2_act = wp.vec3(-0.1, 0.1, 0.0)  # Velocity for endpoint 2
+    # # Compute and print force before update
+    v1_act = vec3(0.2, 0.1, 0.0)  # Velocity for endpoint 1
+    v2_act = vec3(-0.1, 0.1, 0.0)  # Velocity for endpoint 2
     print("Actuated Cable Force (before update):", compute_force(act_cable, v1_act, v2_act))
 
-    # Apply some control input and update the cable
-    control_signal = 0.5  # Example control signal for motor actuation
-    cable_len = compute_length(act_cable)  # Get the current length of the cable
-    dt = 0.01  # Time step for update
+    # # Apply some control input and update the cable
+    control_signal = default_dtype(0.5)  # Example control signal for motor actuation
+    cable_len = default_dtype(compute_len(act_cable))  # Get the current length of the cable
+    dt = default_dtype(0.01)  # Time step for update
     
     update_cable(act_cable, control_signal, cable_len, dt)
 
     # Print updated length and forces
-    print("Actuated Cable Length (after update):", compute_length(act_cable))
+    print("Actuated Cable Length (after update):", compute_len(act_cable))
     print("Actuated Cable Force (after update):", compute_force(act_cable, v1_act, v2_act))
 
     # Reset cable and check if it resets correctly
     reset_cable(act_cable)
-    print("Actuated Cable Length (after reset):", compute_length(act_cable))
+    print("Actuated Cable Length (after reset):", compute_len(act_cable))
 
 

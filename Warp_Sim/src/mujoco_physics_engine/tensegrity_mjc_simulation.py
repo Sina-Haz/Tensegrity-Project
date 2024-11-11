@@ -1,7 +1,7 @@
 import json
 import random
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 import numpy as np
 import tqdm
@@ -20,7 +20,7 @@ class TensegrityMuJoCoSimulator(AbstractMuJoCoSimulator):
     def __init__(self,
                  xml_path: Path,
                  visualize: bool = True,
-                 render_size: (int, int) = (720, 720),
+                 render_size: Tuple[int, int] = (720, 720),
                  render_fps: int = 100):
         super().__init__(xml_path, visualize, render_size, render_fps)
         self.min_spring_length = 1.0

@@ -1,0 +1,10 @@
+If you are getting a no overload error:
+ - First I went and put function and structs in their own file
+ - Then I changed the types of function to Any for generic
+ - Then I see that inside the function there was a type issue where we did a float32 * vec3d of float64's
+ - Once I cast to double precision I saw that there was no issue
+
+If there's an overload of this function (2 of the same name) -> method above only works if I comment out the other defn
+
+A lot of incompatible multiplications are fixed when I change defualt dtype to float, however it messes with vectors as
+now they are incompatible sometimes b/c of vec3f vs. vec_t
