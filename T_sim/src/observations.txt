@@ -1,0 +1,11 @@
+differences between spring_rod and spring_rod2
+
+1. spring_rod2 is much slower, this is likely because the main loop we simulate in is in python scope rather than taichi scope
+
+ --> Possible solutions?
+ Issue with doing it all in taichi scope is they don't allow nested kernels and they also don't like too many nested for-loops
+  - struct for is something like:
+    for i in field
+ These are parallelized vs. for i in range(...) these are serialized
+
+2. Different values -> is there an error in my computations or is there some difference in physical quantities?

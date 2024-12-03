@@ -18,7 +18,7 @@ ti.init(arch=ti.gpu)
 # Ball represented only by center and radius
 
 # Cloth representation: (1 m^2 area)
-n = 128
+n = 256
 # x is an n x n field consisting of 3D vectors representing the mass points' positions
 x = ti.Vector.field(3, dtype=float, shape=(n, n))
 # v is an n x n field consisting of 3D vectors representing the mass points' velocities
@@ -198,7 +198,7 @@ current_t = 0.0
 init_mass_pts()
 
 while window.running:
-    if current_t > 1.5:
+    if current_t > 2.0:
         # Reset
         init_mass_pts()
         current_t = 0

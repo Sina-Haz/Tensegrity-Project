@@ -1,0 +1,13 @@
+For each rigid body shape:
+ - should be able to internally calculate I_body and I_body_inv (look at Nelson's simulator utils/intertia_tensors)
+ - Look at how Nelson handles json, for most objects want to compute quaternion via sites/endpoints
+    - Look at utils/torch_quaternion.py and the function compute_quat_btwn_z_and_vec (principal axis = normalized endpt diff)
+ - Once verify spring_rod == mujoco, check with damping=10, then have non-symmetric springs (check rotation based on endpoints)
+
+
+ Verified stiffness with symmetric springs
+ Verified stiffness + damping with symmetric springs
+ NOT the same with non-symmetric springs (mujoco quaternion seems to have magnitude greater than 1?)
+  -> Seems like the z pos is the same but not the x position (should I print diff of spring forces?)
+
+  
