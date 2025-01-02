@@ -1,6 +1,7 @@
 import taichi as ti
 import taichi.math as tm
-from data import default_dtype, vec4, mat33
+from data import default_dtype, vec3, vec4, mat33
+import numpy as np
 
 
 @ti.func
@@ -36,6 +37,45 @@ def quat_exp(q) -> vec4:
     norm_v = tm.clamp(v.norm(), 1e-8, float('inf'))
     e_q = vec4((tm.e**s) * tm.cos(norm_v), v*(tm.e**s) * tm.sin(norm_v) * (1 / norm_v))
     return e_q
+
+def quat_from_endpts(p1: list, p2: list) -> vec4:
+    '''
+    Takes in two endpoints as lists and computes the quaternion rotation
+     - Rotation is w.r.t. principal axis z = (0, 0, 1)
+     - We do this with numpy under the hood and then convert to taichi's vec4
+
+    Do this by computing rotation axis as cross product of z and normalized unit vector b/w endpoints
+    '''
+    p1, p2 = np.array(p1, dtype=np.float64), np.array(p2, np.float64)
+    v = p2 - p1
+    v_norm = np.linalg.norm(v)
+
+    # Endpoints shouldn't be the same
+    assert v_norm != 0
+
+    # Normalize v
+    v = v / v_norm
+    z = vec3(0,0,1)
+
+    # Rotation axis:
+    r = np.cross(z, v)
+    r_norm = np.linalg.norm(r)
+    theta = np.arccos(np.dot(z, v))
+
+    # Edge cases: (r is parallel to z, no rotation or flipped)
+    if r_norm == 0:
+        if r == z: return vec4(1,0,0,0) # Unit quaternion
+        else: return vec4(0, 1, 0, 0)
+
+    # Normalize r if r_norm neq to 0
+    r = r / r_norm
+    w = np.cos(theta / 2)
+    xyz = r * np.sin(theta / 2)
+
+    return vec4(w, xyz)
+
+
+
 
 @ti.func
 def quat_from_matrix(R) -> vec4:

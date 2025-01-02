@@ -5,9 +5,46 @@ For each rigid body shape:
  - Once verify spring_rod == mujoco, check with damping=10, then have non-symmetric springs (check rotation based on endpoints)
 
 
+Spring Rod 1 (hardcoded everything):
  Verified stiffness with symmetric springs
  Verified stiffness + damping with symmetric springs
  NOT the same with non-symmetric springs (mujoco quaternion seems to have magnitude greater than 1?)
   -> Seems like the z pos is the same but not the x position (should I print diff of spring forces?)
+Upon debugging and retesting it seems like it matches mujoco well up to 3 seconds with non-symmetric springs (w/ 0 damping)
+ - However, note that the quaternion is flipped, perhaps this is an issue?
+ - Verified for non-symmetric stiffness, equal damping
+ - Verified for non-symmetric stiffness AND damping
 
-  
+Spring Rod 2 (w/ configuration file):
+1. So far has passed sanity test of springs with 0 stiffness, 0 damping
+
+2. With 10 stiffness:
+ - Found inconsistency in globals, update_globals() not working correctly -> [[0,0,5], [0,0,3]]
+ - Seems like it's computing globals as if it's orientation was same as principal (z-axis)
+
+  - Fixed the globals issue, I think now it's not assigning properly to springs?
+  - Issue isn't force assignment to matrix row
+  - Seems like the length isn't changing, endpoints not properly assigned?
+  - update_globals wasn't working because it was designated as ti.kernel, can't have a kernel run in another kernel 
+      - changed it to ti.func but now may need to rework config file to pass in endpoints/sites as absolute coords
+
+3. Damping:
+ - Works with symmetric stiffness + damping
+
+4. Non-Symmetry
+ - Works with non-symmetrical stiffness, as before seems like quaternions are flipped
+ - Non-symmetrical stiffness + symmetric damping 
+ - Non-symmetric stiffness AND damping
+
+Next Work:
+ - Incorporate indices that automate computing spring endpoint locations (2x2 matrix field of size (n_springs, ))
+ - Make sure that endpoints are given in absolute position and then we compute locals from that
+ - Start writing a world model class and experiment with that
+ - Shape classes?
+
+After this:
+ - Nelson will send 3bar tensegrity model
+ - Want to be able to model this just hanging (with no contact)
+ - Then implement linear contact model
+
+

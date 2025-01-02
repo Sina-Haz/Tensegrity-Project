@@ -4,11 +4,21 @@ from data import *
 from quat import *
 from cables import Spring
 from rigid import RigidBody, rigid_state
+from inertia_tensor import *
 import json
-import time
 
 ti.init(arch=ti.cpu)
 
+def quat_to_matrix_py(q) -> mat33:
+    '''
+    quat to matrix function in python scope
+    '''
+    w, x, y, z = q
+    return ti.Matrix([
+        [1 - 2*(y**2 + z**2), 2*(x*y - z*w), 2*(x*z + y*w)],
+        [2*(x*y + z*w), 1 - 2*(x**2 + z**2), 2*(y*z - x*w)],
+        [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]
+    ])
 
 @ti.kernel
 def init_field(field: ti.template(), val: ti.template()):
@@ -34,7 +44,7 @@ locals = ti.Vector.field(3, dtype=default_dtype, shape=(n_bodies, max_sites_per_
 globals = ti.Vector.field(3, dtype=default_dtype, shape=(n_bodies, max_sites_per_body))
 g = vec3(0, 0, -9.81)
 
-@ti.kernel
+@ti.func
 def update_globals():
     for i, j in ti.ndrange(locals.shape[0], locals.shape[1]):
         globals[i, j] = rbs[i].body_to_world(locals[i, j])
@@ -51,27 +61,41 @@ for i, body_data in enumerate(data['bodies']):
 
     # Initialize state data into taichi classes
     position = vec3(body_data['state']['pos'])
-    rot = vec4(body_data['state']['quat'])
+    endpts = body_data['endpoints']
+    rot = quat_from_endpts(*endpts)
     velocity = vec3(body_data['state']['velocity'])
     omega = vec3(body_data['state']['omega'])
 
     # Get rigid body state
     rstate = rigid_state(pos = position, quat = rot, v = velocity, w = omega)
+    mass = body_data['mass']
 
     # Get I_body and I_body_inv
-    I_body = mat33(body_data['I_body'])
-    I_body_inv = I_body.inverse()
+    if body_data['type'].lower() == 'cylinder':
+        I_body = cylinder(mass,body_data['length'], body_data['radius'])
+        I_body_inv = I_body.inverse()
 
-    rb = RigidBody(state = rstate, mass = body_data['mass'], I_body = I_body, I_body_inv = I_body_inv)
+    rb = RigidBody(state = rstate, mass = mass, I_body = I_body, I_body_inv = I_body_inv)
 
     rbs[i] = rb
 
     # Finally we make sure to add sites to our global body sites
+    q_inv = rb.state.quat * -1
+    q_inv[0] *= -1
+    R = quat_to_matrix_py(q_inv)
     for j in range(len(body_data['sites'])):
-        locals[i, j] = vec3(body_data['sites'][j])
+        site = vec3(body_data['sites'][j])
+        
+        # Rotate site by the inverse of quaternion rotation so that site is in local frame of reference (w/ principal axis = z)
+        rotated_to_local = R @ site
+        locals[i, j] = rotated_to_local
+
 
 # Call this to populate global site positions
-update_globals()
+# update_globals()
+# HARDCODED FOR NOW:
+globals[0,0] = vec3(-1, 0, 4)
+globals[0,1] = vec3(1,0,4)
 
 # Now we load in the springs
 for i, spr_data in enumerate(data['springs']):
@@ -94,10 +118,12 @@ for i, spr_data in enumerate(data['springs']):
     spr = Spring(ke=spr_data['ke'], kd = spr_data['kd'], L0 = spr_data['L0'], x1=x1, x2=x2)
     springs[i] = spr
 
+
 # Now that we have initialized all of the springs and rigid bodies lets build the spring force map as described above
 # Recall that in our map for each body we have an m x n matrix where m = number of sites and n = number of springs
 map = ti.Matrix.field(max_sites_per_body, n_springs, dtype=ti.i32, shape = (n_bodies, ))
 
+# TODO: Test which is right direction 
 def build_map():
     # First initialize map to all zeros:
     init_field(map, ti.Matrix([[0] * max_sites_per_body for _ in range(n_springs)]))
@@ -140,7 +166,8 @@ def simulate2():
             v2 = rbs[0].state.v + tm.cross(rbs[0].state.w, springs[i].x2 - rbs[0].state.pos)
 
             fspr[i, :] = springs[i].force(v1, v2)
-        
+
+        # print(springs[0].x2, springs[1].x2)
 
         # To get net f_ext and tau_ext for each rigid body we use our mapping to get a matrix and then use that to sum forces
         # And then do something a bit more complicated for tau
@@ -157,7 +184,7 @@ def simulate2():
 
             # Add gravity
             f_net += rbs[i].mass * g
-            # if ct % 100 == 0: print(f_net)
+            # print(f_net)
 
             # Use net force and torque to compute linear and angular acceleration
             a = f_net / rbs[i].mass
@@ -175,12 +202,13 @@ def simulate2():
         
         # Update global site locations:
         update_globals()
+        # print(globals[0,0], globals[0,1])
 
         # Update spring endpoint locations (FOR NOW HARDCODED)
-        springs[0].x1 = vec3(-2, 0, 5)
+        springs[0].x1 = vec3(-1, 0, 6)
         springs[0].x2 = globals[0, 0]
 
-        springs[1].x1 = vec3(2, 0, 5)
+        springs[1].x1 = vec3(1, 0, 6)
         springs[1].x2 = globals[0, 1]
 
         # Update time: 
@@ -188,17 +216,9 @@ def simulate2():
         ct+=1
 
 
-# start_sim = time.time()
-# simulate()
-# end_sim = time.time()
-# print(f'Simulate 1 time: {end_sim - start_sim}')
 
 
-# start_sim1 = time.time()
 simulate2()
-# end_sim1 = time.time()
-# print(f'Simulate 2 time: {end_sim1 - start_sim1}')
-
 # Checked that rigid body and springs have same initialization but not the same forces?
 
 

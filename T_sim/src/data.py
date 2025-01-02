@@ -1,5 +1,4 @@
 import taichi as ti
-import numpy as np
 
 default_dtype = ti.f64
 

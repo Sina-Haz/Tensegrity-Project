@@ -26,11 +26,12 @@ rod_len = 2
 rod_radius = .5
 quat = vec4(tm.cos(tm.pi/ 4), tm.sin(tm.pi/ 4)*vec3(0,1,0))
 print(quat)
+
 # We need to initialize our taichi objects within taichi scope if we want to use them so we need to make an init function:
 @ti.kernel
 def init_objects():
     # Initialize our springs
-    spr1 = Spring(ke=20, kd = 10, L0 = 2, x1 = fixed_points[0], x2 = attachment_points[0])
+    spr1 = Spring(ke=10, kd = 10, L0 = 2, x1 = fixed_points[0], x2 = attachment_points[0])
     spr2 = Spring(ke=10, kd = 10, L0 = 2, x1 = fixed_points[1], x2 = attachment_points[1])
     springs[0] = spr1
     springs[1] = spr2
@@ -51,6 +52,7 @@ def init_objects():
     rod = RigidBody(mass = 1, I_body = I_body, I_body_inv = I_body_inv, state = rod_state)
     rbs[0] = rod
 
+
 # compute endpoints based on CoM of the rod and orientation by mapping from local to world
 @ti.func
 def get_endpts(rod: RigidBody):
@@ -59,7 +61,7 @@ def get_endpts(rod: RigidBody):
     return world
 
 # Now we want to integrate this system for a Duration of 3 seconds with small timesteps dt = 0.1
-duration = 0.5
+duration = 3
 dt = 1e-3
 # currT has to be a taichi field to use it in a taichi kernel
 currT = ti.field(dtype=ti.f32, shape=())  # Current time
@@ -99,11 +101,13 @@ def simulate():
         fspr2 = spr2.force(vec3(0,0,0), v_e2)
         f_g = rod.mass * vec3(0, 0, -9.81)
 
+
+
         # Compute net force and torque
         net_force = fspr1+fspr2+f_g
+
         # Equation for torque: torque_i = (r_t - CoM) cross F_ext
         net_torque = tm.cross((spr1.x2 - rod.state.pos), fspr1) + tm.cross((spr2.x2 - rod.state.pos), fspr2)
-        # if ct % 100 == 0: print(net_force)
 
         # Using the net force and torque we can calc linear and angular accel
         a = net_force / rod.mass
@@ -115,9 +119,6 @@ def simulate():
 
         # Update position and orientation:
         rod.state.pos += rod.state.v * dt # x += dx/dt * dt
-        # # For quaternions: dq/dt = 1/2 * (q * w_q)
-        # rod.state.quat += .5 * quat_mul(rod.state.quat, vec4(0, *rod.state.w)) * dt
-        # rod.state.quat = rod.state.quat.normalized()
         # Exponentiated update rule for quaternions (more stable):
         rod.state.quat = quat_mul(rod.state.quat, quat_exp(.5 * dt * vec4(0, rod.state.w)))
 
@@ -126,6 +127,7 @@ def simulate():
         ct += 1
 
 init_objects()
+print(rbs[0].I_body)
 simulate()
 
 

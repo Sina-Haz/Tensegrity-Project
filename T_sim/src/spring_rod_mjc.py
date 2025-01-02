@@ -1,20 +1,24 @@
 import mujoco
 import time
+import mujoco_viewer as mjv
 
-# Calculate the same inertia values as in Taichi simulation
-mass = 1.0
-rod_len = 2.0
-I_x = I_y = (1/12) * mass * rod_len**2
-I_z = 0.1  # negligible for thin rod
 
 # Create the MJCF XML model
 XML = '''
 <?xml version="1.0" ?>
 <mujoco>
+    <compiler angle="degree" coordinate="global" inertiafromgeom="true">
+            <lengthrange timestep="0.001"/>
+    </compiler>
     <option gravity="0 0 -9.81" integrator="Euler">
     </option>
     
     <worldbody>
+        <!-- Light sources -->
+        <light pos="0 0 10" diffuse="1 1 1" specular="1 1 1" />
+        <light pos="5 5 10" diffuse="1 1 1" specular="1 1 1" />
+        <light pos="-5 -5 10" diffuse="1 1 1" specular="1 1 1" />
+
         <!-- Fixed points for springs -->
         <site name="anchor1" pos="-1 0 6" size="0.02"/>
         <site name="anchor2" pos="1 0 6" size="0.02"/>
@@ -30,7 +34,7 @@ XML = '''
     </worldbody>
     
     <tendon>
-        <spatial name="spring1" stiffness="20" damping="10" springlength="2">
+        <spatial name="spring1" stiffness="20" damping="5" springlength="2">
             <site site="anchor1"/>
             <site site="rod_attach1"/>
         </spatial>
@@ -51,13 +55,21 @@ data = mujoco.MjData(model)
 # Set initial conditions
 # Position is already set in XML (0, 0, 4)
 # Set initial velocity (0, 0, 0.3) and angular velocity (0, 0.2, 0)
-data.qpos[0:3] = [0,0,4]
+# data.qpos[:] = [0,0,4,0.70710678, 0. , 0.70710678, 0. ]
+# data.qpos[:] = [0,0,4,1,0,0,0]
+
 data.qvel[0:3] = [0, 0, 0]  # linear velocity
 data.qvel[3:6] = [0, 0, 0]  # angular velocity
 
+viewer = mjv.MujocoViewer(model, data)
+
+viewer.cam.lookat[0] = 0  # x-coordinate of the point to look at
+viewer.cam.lookat[1] = 0  # y-coordinate of the point to look at
+viewer.cam.lookat[2] = 4  # z-coordinate of the point to look at
+viewer.cam.distance = 10   # Distance from the camera to the look-at point
 
 # Simulation parameters
-duration = 0.5
+duration = 3
 model.opt.timestep = dt = 1e-3
 steps = int(duration / dt)
 
@@ -67,6 +79,7 @@ start_sim1 = time.time()
 for step in range(steps):
     # Step the simulation
     mujoco.mj_step(model, data)
+    # viewer.render()
     
     # Extract position (already in xyz)
     position = data.qpos[0:3]
