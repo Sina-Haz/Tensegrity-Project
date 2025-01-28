@@ -1,0 +1,21 @@
+Mainly grouped into bodies and springs (in future add some hyper params + cables)
+
+Bodies:
+ - Should give it center of mass in terms of global or absolute position
+ - Endpoints and sites should be absolute position to center of mass
+ - No longer need to provide CoM to cylinder as long as starting info includes Endpoints
+ - Every body "type' should have associated shape which defines specific way to parse information for that shape
+
+
+Talk to Nelson about:
+ - Right now, structured so that we have an array of rigid bodies (min info to simulate without contacts)
+ - Have these classes shapes, which wrap our rigid bodies -> Each shape may have different amount of information based on needs
+ - Should we instead have array of shapes, with the extra metadata for contact? 
+    - If so how to implement since taichi likely wants arrays/fields with equal sized memory, array for each type of shape?
+
+Practical Simulating problems: 
+ - Right now, for 3-bar simulation each rigid body is made up of multiple cylinders + spheres
+    - This will likely require different computation for moment of inertia
+    - How to treat these multiple shapes as one rigid body? 
+        - Sum up the mass, compute requisite moment of inertia, compute CoM of combination of these bodies, look to Nelson's
+         Composite rigid body class to see an example of this

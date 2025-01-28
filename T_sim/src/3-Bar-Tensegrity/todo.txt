@@ -1,0 +1,6 @@
+mj_forward -> call this before accessing sensor data
+
+instead of comparing quaternion -> compare rod endpoints. with mujoco use framepos sensors at sites
+
+write a comparison script that subtracts values up to 1e-8, try a numpy version to step through
+if you can debug: compare speeds

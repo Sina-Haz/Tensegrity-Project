@@ -11,14 +11,14 @@ class Spring:
     x1: vec3 # Endpoint 1
     x2: vec3 # Endpoint 2
 
-    @ti.func
+    @ti.pyfunc
     def len(self) -> default_dtype:
         '''
         Computes length of a cable based on its endpoint position
         '''
         return (self.x2-self.x1).norm()
     
-    @ti.func
+    @ti.pyfunc
     def force(self, v1:vec3, v2:vec3) -> vec3:
         '''
         Takes in velocities of the endpoints of Spring spr.
@@ -48,14 +48,14 @@ class Cable:
     x1: vec3 # Endpoint 1
     x2: vec3 # Endpoint 2
 
-    @ti.func
+    @ti.pyfunc
     def len(self) -> default_dtype:
         '''
         Computes length of a cable based on its endpoint position
         '''
         return (self.x2-self.x1).norm()
     
-    @ti.func
+    @ti.pyfunc
     def force(self, v1:vec3, v2:vec3) -> vec3:
         '''
         Computes the spring force using equation F = ke * (currLen - restLen) - kd * relative velocity

@@ -10,7 +10,7 @@ class rigid_state:
     v: vec3 # linear velocity
     w: vec3 # angular velocity, direction represents axis of rotation and magnitude is speed of rotation
 
-    @ti.func
+    @ti.pyfunc
     def update(self, x, q, v, w):
         self.pos = x
         self.quat = q
@@ -25,7 +25,7 @@ class RigidBody:
     I_body_inv:mat33
     state: rigid_state
 
-    @ti.func
+    @ti.pyfunc
     def world_to_body(self, world_coords: vec3) -> vec3:
         """
         Transforms a point from world coordinates to the rigid body's local (body) coordinates.
@@ -42,12 +42,14 @@ class RigidBody:
         to get the coordinates in the local frame.
         """
         R = quat_to_matrix(self.state.quat)
-        R_inv = tm.inverse(R)
+
+        assert R @ R.transpose() == id
+        R_inv = R.transpose()
         rel_coords = world_coords - self.state.pos
         body_coords = R_inv @ rel_coords
         return body_coords
     
-    @ti.func
+    @ti.pyfunc
     def body_to_world(self, body_coords: vec3) -> vec3:
         """
         Transforms a point from the rigid body's local (body) coordinates to world coordinates.
@@ -66,7 +68,7 @@ class RigidBody:
         world_coords = (R @ body_coords) + self.state.pos
         return world_coords
     
-    @ti.func
+    @ti.pyfunc
     def I_t(self) -> mat33:
         '''
         Computes the new "Inertia Tensor" of the rigid body based on it's current orientation and 
@@ -76,7 +78,7 @@ class RigidBody:
         R = quat_to_matrix(self.state.quat)
         return R @ self.I_body @ R.transpose()
     
-    @ti.func
+    @ti.pyfunc
     def I_t_inv(self) -> mat33:
         '''
         Computes inverse of I_t, just faster to do it this way than compute and then invert

@@ -42,6 +42,15 @@ Next Work:
  - Start writing a world model class and experiment with that
  - Shape classes?
 
+ spring rod 3:
+  - so far works up to symmetric stiffness, no damping
+  - With damping seems to be off -> computing zero damping force?
+  - Was small bug with computing endpoint velocities, symmetric stiffness and damping works
+  - Nonsymmetric stiffness + symmetric damping works, now works with non-symmetric damping too!
+  
+
+
+
 After this:
  - Nelson will send 3bar tensegrity model
  - Want to be able to model this just hanging (with no contact)

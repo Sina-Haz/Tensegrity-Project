@@ -4,24 +4,24 @@ from data import default_dtype, vec3, vec4, mat33
 import numpy as np
 
 
-@ti.func
+@ti.pyfunc
 def quat_conjugate(q: vec4):
     conj = vec4(q * -1)
     conj[0] *= -1
     return conj
 
-@ti.func
+@ti.pyfunc
 def quat_mul(q1, q2) -> vec4:
     s1, s2 = q1[0], q2[0]
     v1, v2 = q1[1:], q2[1:]
     return vec4(s1 * s2 - tm.dot(v1, v2), s1*v2 + s2*v1 + tm.cross(v1, v2))
 
 # Returns conjugate but first ensures it's normalized
-@ti.func
+@ti.pyfunc
 def quat_inv(q) -> vec4:
     return quat_conjugate(q.normalized())
 
-@ti.func
+@ti.pyfunc
 def quat_to_matrix(q) -> mat33:
     w, x, y, z = q
     return ti.Matrix([
@@ -30,7 +30,7 @@ def quat_to_matrix(q) -> mat33:
         [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]
     ])
 
-@ti.func
+@ti.pyfunc
 def quat_exp(q) -> vec4:
     s, v = q[0], q[1:]
 
@@ -77,7 +77,7 @@ def quat_from_endpts(p1: list, p2: list) -> vec4:
 
 
 
-@ti.func
+@ti.pyfunc
 def quat_from_matrix(R) -> vec4:
     '''
     WARNING: Numerically unstable
@@ -115,6 +115,17 @@ def quat_from_matrix(R) -> vec4:
     q = q.normalized()
     
     return q
+
+# def quat_to_matrix_py(q) -> mat33:
+#     '''
+#     quat to matrix function in python scope
+#     '''
+#     w, x, y, z = q
+#     return ti.Matrix([
+#         [1 - 2*(y**2 + z**2), 2*(x*y - z*w), 2*(x*z + y*w)],
+#         [2*(x*y + z*w), 1 - 2*(x**2 + z**2), 2*(y*z - x*w)],
+#         [2*(x*z - y*w), 2*(y*z + x*w), 1 - 2*(x**2 + y**2)]
+#     ])
 
 
 # Test the quaternion operations in a kernel

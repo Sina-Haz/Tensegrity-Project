@@ -1,3 +1,12 @@
+import sys
+import os
+
+# Get the parent directory
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# Add the parent directory to sys.path
+sys.path.insert(0, parent_dir)
+
 import taichi as ti
 import taichi.math as tm
 from data import *
@@ -49,6 +58,11 @@ def update_globals():
     for i, j in ti.ndrange(locals.shape[0], locals.shape[1]):
         globals[i, j] = rbs[i].body_to_world(locals[i, j])
 
+@ti.func
+def update_locals():
+    for i, j in ti.ndrange(locals.shape[0], locals.shape[1]):
+        locals[i, j] = rbs[i].world_to_body(globals[i, j])
+
 '''
 Mapping spring forces to bodies:
 1. Each body has some vector of sites (m x 1) -> this is row i of body_sites
@@ -58,13 +72,20 @@ Mapping spring forces to bodies:
 
 # Populate Rigid Bodies from JSON data
 for i, body_data in enumerate(data['bodies']):
+    endpts = body_data['endpoints']
 
     # Initialize state data into taichi classes
-    position = vec3(body_data['state']['pos'])
-    endpts = body_data['endpoints']
+    if 'state' in body_data:
+        velocity = vec3(body_data['state']['velocity'])
+        omega = vec3(body_data['state']['omega'])
+
+    # Default
+    else:
+        velocity = vec3([0.0, 0.0, 0.0])
+        omega = vec3([0.0, 0.0, 0.0])
+    
+    position = (vec3(endpts[0]) + vec3(endpts[1])) / 2
     rot = quat_from_endpts(*endpts)
-    velocity = vec3(body_data['state']['velocity'])
-    omega = vec3(body_data['state']['omega'])
 
     # Get rigid body state
     rstate = rigid_state(pos = position, quat = rot, v = velocity, w = omega)
@@ -72,7 +93,7 @@ for i, body_data in enumerate(data['bodies']):
 
     # Get I_body and I_body_inv
     if body_data['type'].lower() == 'cylinder':
-        I_body = cylinder(mass,body_data['length'], body_data['radius'])
+        I_body = cylinder_inertia(mass,body_data['length'], body_data['radius'])
         I_body_inv = I_body.inverse()
 
     rb = RigidBody(state = rstate, mass = mass, I_body = I_body, I_body_inv = I_body_inv)
@@ -80,22 +101,10 @@ for i, body_data in enumerate(data['bodies']):
     rbs[i] = rb
 
     # Finally we make sure to add sites to our global body sites
-    q_inv = rb.state.quat * -1
-    q_inv[0] *= -1
-    R = quat_to_matrix_py(q_inv)
     for j in range(len(body_data['sites'])):
         site = vec3(body_data['sites'][j])
-        
-        # Rotate site by the inverse of quaternion rotation so that site is in local frame of reference (w/ principal axis = z)
-        rotated_to_local = R @ site
-        locals[i, j] = rotated_to_local
+        globals[i, j] = site
 
-
-# Call this to populate global site positions
-# update_globals()
-# HARDCODED FOR NOW:
-globals[0,0] = vec3(-1, 0, 4)
-globals[0,1] = vec3(1,0,4)
 
 # Now we load in the springs
 for i, spr_data in enumerate(data['springs']):
@@ -123,7 +132,7 @@ for i, spr_data in enumerate(data['springs']):
 # Recall that in our map for each body we have an m x n matrix where m = number of sites and n = number of springs
 map = ti.Matrix.field(max_sites_per_body, n_springs, dtype=ti.i32, shape = (n_bodies, ))
 
-# TODO: Test which is right direction 
+
 def build_map():
     # First initialize map to all zeros:
     init_field(map, ti.Matrix([[0] * max_sites_per_body for _ in range(n_springs)]))
@@ -142,8 +151,8 @@ def build_map():
             map[body_idx][site_idx, spr_idx] = 1
 
 
-# Now we want to integrate this system for a Duration of 3 seconds with small timesteps dt = 0.1
-duration = 3
+# Now we want to integrate this system for a Duration of 3 seconds with small timesteps
+duration = 1
 dt = 1e-3
 # currT has to be a taichi field to use it in a taichi kernel
 currT = ti.field(dtype=ti.f32, shape=())  # Current time
@@ -154,7 +163,8 @@ build_map()
 
 @ti.kernel
 def simulate2():
-    ct = 0
+    update_locals() # Set up sites in local reference
+
     while currT[None] < duration:
 
         # populate spring forces 
@@ -202,7 +212,7 @@ def simulate2():
         
         # Update global site locations:
         update_globals()
-        # print(globals[0,0], globals[0,1])
+
 
         # Update spring endpoint locations (FOR NOW HARDCODED)
         springs[0].x1 = vec3(-1, 0, 6)
@@ -213,9 +223,6 @@ def simulate2():
 
         # Update time: 
         currT[None] += dt
-        ct+=1
-
-
 
 
 simulate2()

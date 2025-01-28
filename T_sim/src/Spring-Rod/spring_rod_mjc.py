@@ -1,3 +1,12 @@
+import sys
+import os
+
+# Get the parent directory
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+# Add the parent directory to sys.path
+sys.path.insert(0, parent_dir)
+
 import mujoco
 import time
 import mujoco_viewer as mjv
@@ -34,11 +43,11 @@ XML = '''
     </worldbody>
     
     <tendon>
-        <spatial name="spring1" stiffness="20" damping="5" springlength="2">
+        <spatial name="spring1" stiffness="20" damping="10" springlength="2">
             <site site="anchor1"/>
             <site site="rod_attach1"/>
         </spatial>
-        <spatial name="spring2" stiffness="10" damping="10" springlength="2">
+        <spatial name="spring2" stiffness="10" damping="20" springlength="2">
             <site site="anchor2"/>
             <site site="rod_attach2"/>
         </spatial>
@@ -69,7 +78,7 @@ viewer.cam.lookat[2] = 4  # z-coordinate of the point to look at
 viewer.cam.distance = 10   # Distance from the camera to the look-at point
 
 # Simulation parameters
-duration = 3
+duration = 1
 model.opt.timestep = dt = 1e-3
 steps = int(duration / dt)
 
