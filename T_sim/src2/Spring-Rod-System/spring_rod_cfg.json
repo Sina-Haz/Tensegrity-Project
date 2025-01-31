@@ -1,0 +1,49 @@
+{
+    "bodies":[
+        {
+            "type": "cylinder",
+            "state":{
+                "velocity": [0, 0, 0],
+                "omega": [0, 0, 0]
+            },
+            "mass": 1,
+            "radius": 0.5,
+            "endpoints": [[-1, 0, 4], [1, 0, 4]],
+            "sites" : [[-1, 0, 4], [1, 0, 4]]
+        },
+        {
+            "name": "fixed-wall-cylinder",
+            "type": "cylinder",
+            "mass": 1e10,
+            "radius": 1e5,
+            "endpoints": [[-1, 0, 6], [1, 0, 6]],
+            "sites": [[-1, 0, 6], [1, 0, 6]]
+        }
+    ],
+    "tendons": [
+        {
+            "ke": 20,
+            "kd": 10,
+            "L0": 2,
+            "x1": {
+                "site" : 2
+            },
+            "x2":{
+                "site": 0
+            },
+            "type": 0
+        },
+        {
+            "ke": 10,
+            "kd": 20,
+            "L0": 2,
+            "x1": {
+                "site" : 3
+            },
+            "x2":{
+                "site": 1
+            },
+            "type": 0
+        }
+    ]
+}
