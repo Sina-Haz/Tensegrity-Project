@@ -1,0 +1,45 @@
+In this folder we will use a very simple implementation using only numpy to implement our rigid body dynamics
+
+We will instead need to focus on a data oriented programming design of our application
+
+First we need to understand what data we need, what is manipulated at every timestep etc.:
+
+Our simulation consists of the following entities:
+1. Bodies -> These share the state data (changes) + static data (immutable), N_BODIES
+    State data: 
+        position, orientation, linear and angular velocity
+    
+    Static data:
+        Mass, Inertia tensor (gets transformed via rotation), id (just it's index)
+
+
+2. Site data: K_SITES
+    body id: id of each body it's related to
+    body_local_pos: local coordinates of the body it's on (immutable, set after initialization)
+    global_pos: global coordinates (updates every timestep)
+    site_velocity: velocity of this site (updates every timestep)
+
+
+2. Tendons -> Either behave like spring or cable, M_TENDONS
+
+    static:
+        Stiffness, damping, rest length, attach1 id, attach2 id, type
+
+    attach1 id -> site id, can use this to get corresponding body id and attribute negative force to it
+    attach2 id -> site id, can use this to get corresponding body id and attribute positive force to it
+
+3. Contact data:
+    {
+        id vector: [...] body ids,
+        component1: [...] (e.g. radius of each),
+        component2: [...] (e.g. height of each),
+        ... (more components)
+    }
+
+Simulation pipeline:
+    step:
+         - updateSites() -> in: body position, velocity, omega, orientation || out: global_pos, site_velocity
+         - getTendonForce() -> in: global_pos, site_velocity, Stiffness, damping, type || out: tendon forces
+         - BodyForceTorque() -> in: tendon forces, attach1 id, attach2 id, sites.body_id || out: body forces, body torques
+         - FwdDynamics() -> in: body forces, body torques, mass, inertia tensor || out: updated body position, velocity, orientation
+         - contacts() ... future worry

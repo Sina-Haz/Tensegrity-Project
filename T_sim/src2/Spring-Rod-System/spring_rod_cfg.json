@@ -7,43 +7,34 @@
                 "omega": [0, 0, 0]
             },
             "mass": 1,
+            "length": 2,
             "radius": 0.5,
             "endpoints": [[-1, 0, 4], [1, 0, 4]],
             "sites" : [[-1, 0, 4], [1, 0, 4]]
-        },
-        {
-            "name": "fixed-wall-cylinder",
-            "type": "cylinder",
-            "mass": 1e10,
-            "radius": 1e5,
-            "endpoints": [[-1, 0, 6], [1, 0, 6]],
-            "sites": [[-1, 0, 6], [1, 0, 6]]
         }
     ],
-    "tendons": [
+    "springs": [
         {
             "ke": 20,
-            "kd": 10,
+            "kd": 0,
             "L0": 2,
             "x1": {
-                "site" : 2
+                "fixed" : [-1, 0, 6]
             },
             "x2":{
-                "site": 0
-            },
-            "type": 0
+                "site": [0, 0]
+            }
         },
         {
             "ke": 10,
-            "kd": 20,
+            "kd": 0,
             "L0": 2,
             "x1": {
-                "site" : 3
+                "fixed" : [1, 0, 6]
             },
             "x2":{
-                "site": 1
-            },
-            "type": 0
+                "site": [0, 1]
+            }
         }
     ]
 }

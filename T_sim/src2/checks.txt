@@ -1,0 +1,7 @@
+For debugging:
+1. Make sure everything matches for 1 timestep, i.e same starting info
+
+2. Further than this: go to 2 or 3 timesteps
+ - Check torques - are they the same? If so the problem is likely your angular acceleration or some such
+    - not the same then problem is likely in your force computation
+ - One problem I faced was computing I_t_inv() incorrectly b/c I wasn't using I_body_inv

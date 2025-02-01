@@ -11,10 +11,24 @@ sys.path.insert(0, parent_dir)
 from serialize import *
 from sim import *
 
-rbs, sites, tendons = read_json('spring_rod_cfg.json')
+rbs, sites, tendons, env = read_json('spring_rod.json')
+np.set_printoptions(precision=4, suppress=False)
 
-# global_pos, site_V = updateSites(rbs.P, rbs.V, rbs.W, rbs.Q, sites.body_id, sites.local_pos)
+env.duration = 1
+def print_bodies(rbs: Bodies):
+    for i in range(rbs.n_bodies):
+        if i not in env.fixed:
+            print(f'Body: {i}')
+            # Print in exact same format as Taichi simulation
+            print(f'position: {rbs.P[i]}\n '
+            f'orientation: {rbs.Q[i]}\n '
+            f'linear velocity: {rbs.V[i]}\n '
+            f'angular velocity: {rbs.W[i]}\n')
 
-# print(np.array_equal(global_pos, sites.global_pos)) # should be true since body position and orientation didn't change
-# print(site_V) # Should be all 0's
 
+steps = int(env.duration / env.dt)
+
+for _ in range(steps):
+    euler_step(rbs, sites, tendons, env)
+
+    print_bodies(rbs)
