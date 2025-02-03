@@ -1,5 +1,6 @@
 import numpy as np
 from data import *
+from icecream import ic
 
 """
 In this file we will define all of the functions that operate over our data and embody our simulation pipeline
@@ -83,11 +84,12 @@ def getTendonForces(global_pos, site_V, tendons: Tendons):
 
     # Get relative positions and velocities
     x_rel, v_rel = x2 - x1, v2 - v1
-    current_lengths = np.linalg.norm(x_rel, axis=1, keepdims=True)
-    unit = x_rel / current_lengths
+    ten_lengths = np.linalg.norm(x_rel, axis=1)
+    unit = x_rel / (ten_lengths[..., np.newaxis])
+    ic(ten_lengths) # debug output
 
     # Total force is sum of spring force and damping force
-    fs = - tendons.ke * (current_lengths.squeeze(-1) - tendons.rest_len)
+    fs = - tendons.ke * (ten_lengths - tendons.rest_len)
     fd = - tendons.kd * np.sum(v_rel * unit, axis=1)
 
     # add an extra dimension to force magnitudes so that it multiplies each unit vector of same index
@@ -95,13 +97,11 @@ def getTendonForces(global_pos, site_V, tendons: Tendons):
 
     # This creates a boolean array of tendons which are both cables, and which are not being stretched but rather compressed
     # In this scenario they should have no force
-    cable_mask = (tendons.type == 1) & (current_lengths.squeeze(-1) <= tendons.rest_len)
+    cable_mask = (tendons.type == 1) & (ten_lengths <= tendons.rest_len)
     tendon_forces[cable_mask] *= 0.0
 
     return tendon_forces
 
-# spring force (fs): -0.000196200000
-# spring force (fs): -0.000098100000
 
 
 def BodyForceTorque(tendon_force, attach1_id, attach2_id, global_site_pos, body_id, body_position):
@@ -144,6 +144,9 @@ def BodyForceTorque(tendon_force, attach1_id, attach2_id, global_site_pos, body_
     r = global_site_pos - body_position[body_id]
     np.add.at(body_torque, body_id, np.cross(r, site_force))
 
+    # ic(body_force)
+    # ic(body_torque)
+
     return body_force, body_torque
 
 
@@ -182,6 +185,9 @@ def FwdDynamics(body_force, body_torque, rbs: Bodies, env: Env):
         accel[env.fixed] *= 0.0
         alpha[env.fixed] *= 0.0
 
+    # print(f'a1: {accel[1]}, alpha1: {alpha[1]}')
+    # print(f'a2: {accel[2]}, alpha2: {alpha[2]}')
+
     rbs = EulerIntegrate(accel, alpha, rbs, env.dt)
 
 
@@ -219,6 +225,7 @@ def euler_step(rbs: Bodies, sites: Sites, tendons: Tendons, env: Env):
     """
     # First get/update the global positions and velocities of the sites
     sites.global_pos, sites.site_V = updateSites(rbs.P, rbs.V, rbs.W, rbs.Q, sites.body_id, sites.local_pos)
+    ic(sites.global_pos)
 
     # Next using these updated global positions and velocities compute the force of each tendon
     tendon_force = getTendonForces(sites.global_pos, sites.site_V, tendons)

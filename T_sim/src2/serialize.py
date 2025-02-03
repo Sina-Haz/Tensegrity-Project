@@ -63,7 +63,7 @@ def read_json(file_name):
         n_sites,
         n_tendons,
         env_attrs['dt'],
-        env_attrs['g'] if 'g' in env_attrs else np.array([0, 0, -9.81]),
+        np.array(env_attrs['gravity']) if 'gravity' in env_attrs else np.array([0, 0, -9.81]),
         env_attrs['duration'] if 'duration' in env_attrs else 1,
         env_attrs['fixed'] if 'fixed' in env_attrs else None
     )

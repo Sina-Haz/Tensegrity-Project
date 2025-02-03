@@ -1,0 +1,12 @@
+Observations:
+1st timestep: 
+ - Currently they match
+
+2nd timestep:
+ - Different accelerations => incorrect force computation
+ - Different tendon lengths -> Different site positions -> MEANS THERE MUST BE A PROBLEM IN UPDATE SITES
+
+
+Trying with 0 damping to see if this is a site velocity issue:
+ - Still different accelerations => Site velocity is not the issue (or the full issue)
+
